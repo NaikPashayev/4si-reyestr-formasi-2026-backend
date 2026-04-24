@@ -2,8 +2,8 @@ server:
   port: ${PORT:8080}
 app:
   admin:
-    password: ${ADMIN_PASSWORD:change-me-now}
-    token-secret: ${ADMIN_TOKEN_SECRET:replace-this-with-a-long-random-secret}
+    password: ${ADMIN_PASSWORD:4sim4sim}
+    token-secret: ${ADMIN_TOKEN_SECRET:;qn4oElX|ew]|MO)eg3Z0%'qM{XpIar~}
     token-ttl-hours: ${ADMIN_TOKEN_TTL_HOURS:12}
   cors:
     allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://localhost:8080}
