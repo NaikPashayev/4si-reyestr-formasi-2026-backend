@@ -29,6 +29,7 @@
     .grid{display:grid;grid-template-columns:220px 1fr;gap:10px;border-top:1px solid #edf1f7;margin-top:14px}
     .grid div{padding:10px 0;border-bottom:1px solid #edf1f7}
     .label{color:#64748b;font-weight:700}
+    pre{white-space:pre-wrap;word-break:break-word}
   </style>
 </head>
 <body>
@@ -86,25 +87,28 @@
   </div>
 
 <script>
-let rows=[];
+let rows = [];
 
-function token(){return localStorage.getItem('adminToken')}
+function token(){
+  return localStorage.getItem('adminToken');
+}
 
 async function login(){
-  const password=document.getElementById('password').value;
-  const res=await fetch('/api/admin/login',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({password})
+  const password = document.getElementById('password').value;
+
+  const res = await fetch('/api/admin/login', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({password})
   });
 
   if(!res.ok){
-    document.getElementById('loginError').textContent='Invalid password';
+    document.getElementById('loginError').textContent = 'Invalid password';
     return;
   }
 
-  const data=await res.json();
-  localStorage.setItem('adminToken',data.token);
+  const data = await res.json();
+  localStorage.setItem('adminToken', data.token);
   showPanel();
   loadApplications();
 }
@@ -120,29 +124,29 @@ function showPanel(){
 }
 
 async function loadApplications(){
-  const res=await fetch('/api/admin/applications',{
-    headers:{Authorization:'Bearer '+token()}
+  const res = await fetch('/api/admin/applications', {
+    headers: {Authorization:'Bearer ' + token()}
   });
 
-  if(res.status===401){
+  if(res.status === 401){
     logout();
     return;
   }
 
-  rows=await res.json();
+  rows = await res.json();
   render();
 }
 
 function render(){
-  document.getElementById('count').textContent=rows.length+' total applicant(s)';
-  const tbody=document.querySelector('#table tbody');
-  tbody.innerHTML='';
+  document.getElementById('count').textContent = rows.length + ' total applicant(s)';
+  const tbody = document.querySelector('#table tbody');
+  tbody.innerHTML = '';
 
-  rows.forEach(r=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`
-      <td>${r.id}</td>
-      <td>${new Date(r.submittedAt).toLocaleString()}</td>
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${esc(r.id)}</td>
+      <td>${formatDate(r.submittedAt)}</td>
       <td>${esc(r.applicantName)}</td>
       <td>${esc(r.email)}</td>
       <td>${esc(r.phone)}</td>
@@ -162,9 +166,9 @@ function render(){
 async function deleteApplication(id){
   if(!confirm('Delete application #' + id + '?')) return;
 
-  const res=await fetch('/api/admin/applications/' + id,{
+  const res = await fetch('/api/admin/applications/' + id, {
     method:'DELETE',
-    headers:{Authorization:'Bearer '+token()}
+    headers:{Authorization:'Bearer ' + token()}
   });
 
   if(!res.ok){
@@ -172,16 +176,16 @@ async function deleteApplication(id){
     return;
   }
 
-  rows=rows.filter(r=>r.id!==id);
+  rows = rows.filter(r => r.id !== id);
   render();
 }
 
 function openDetails(id){
-  const r=rows.find(x=>x.id===id);
+  const r = rows.find(x => x.id === id);
   if(!r) return;
 
-  document.getElementById('modalTitle').textContent='Application #' + r.id;
-  document.getElementById('details').innerHTML=buildDetailsHtml(r);
+  document.getElementById('modalTitle').textContent = 'Application #' + r.id;
+  document.getElementById('details').innerHTML = buildDetailsHtml(r);
   document.getElementById('modal').classList.remove('hidden');
 }
 
@@ -190,59 +194,165 @@ function closeModal(){
 }
 
 function buildDetailsHtml(r){
-  const p=r.payload || {};
+  const p = r.payload || {};
+
   return `
     <div class="grid">
       ${field('ID', r.id)}
-      ${field('Submitted', new Date(r.submittedAt).toLocaleString())}
+      ${field('Submitted', formatDate(r.submittedAt))}
       ${field('Name', r.applicantName)}
       ${field('Email', r.email)}
       ${field('Phone', r.phone)}
       ${field('Status', r.status)}
-      ${field('Payload', '<pre>'+esc(JSON.stringify(p,null,2))+'</pre>')}
+      ${field('Payload', '<pre>' + esc(JSON.stringify(p, null, 2)) + '</pre>')}
     </div>
   `;
 }
 
-function field(label,value){
+function field(label, value){
   return `<div class="label">${esc(label)}</div><div>${value ?? ''}</div>`;
 }
 
 function downloadPdf(id){
-  const r=rows.find(x=>x.id===id);
+  const r = rows.find(x => x.id === id);
   if(!r) return;
 
-  const w=window.open('', '_blank');
+  const w = window.open('', '_blank');
+
   w.document.write(`
     <html>
       <head>
-        <title>Application-${r.id}</title>
+        <title>Application-${esc(r.id)}</title>
         <style>
-          body{font-family:Arial,sans-serif;padding:32px;color:#111}
-          h1{margin-bottom:4px}
-          .section{border:1px solid #ddd;border-radius:12px;padding:16px;margin:16px 0}
-          pre{white-space:pre-wrap;word-break:break-word}
-          button{padding:10px 14px;border-radius:8px;background:#111;color:#fff;border:0}
-          @media print{button{display:none}}
+          body {
+            font-family: Inter, Arial, sans-serif;
+            padding: 40px;
+            background: #f4f7fb;
+            color: #172033;
+          }
+
+          .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+            margin-bottom: 24px;
+          }
+
+          h1 {
+            margin: 0 0 6px;
+            font-size: 28px;
+          }
+
+          .subtitle {
+            color: #64748b;
+            margin: 0;
+          }
+
+          .printBtn {
+            padding: 10px 14px;
+            border-radius: 8px;
+            background: #111827;
+            color: #fff;
+            border: 0;
+            cursor: pointer;
+          }
+
+          .section {
+            background: #fff;
+            border: 1px solid #e5eaf1;
+            border-radius: 14px;
+            padding: 18px;
+            margin: 16px 0;
+            page-break-inside: avoid;
+          }
+
+          .section h2 {
+            margin-top: 0;
+            border-bottom: 1px solid #edf1f7;
+            padding-bottom: 8px;
+            font-size: 20px;
+          }
+
+          .infoGrid {
+            display: grid;
+            grid-template-columns: 180px 1fr;
+            gap: 8px 14px;
+          }
+
+          .label {
+            font-weight: 700;
+            color: #64748b;
+          }
+
+          .value {
+            color: #172033;
+          }
+
+          .project {
+            border-left: 4px solid #111827;
+            padding-left: 14px;
+            margin-top: 16px;
+          }
+
+          .project h3 {
+            margin: 0 0 8px;
+            font-size: 18px;
+          }
+
+          .chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+          }
+
+          .chip {
+            display: inline-block;
+            padding: 5px 9px;
+            background: #eef2ff;
+            color: #1d4ed8;
+            border-radius: 999px;
+            font-size: 12px;
+          }
+
+          p {
+            margin: 7px 0;
+            line-height: 1.5;
+          }
+
+          a {
+            color: #1d4ed8;
+            text-decoration: none;
+          }
+
+          @media print {
+            body {
+              background: #fff;
+              padding: 24px;
+            }
+
+            .printBtn {
+              display: none;
+            }
+
+            .section {
+              box-shadow: none;
+            }
+          }
         </style>
       </head>
+
       <body>
-        <button onclick="window.print()">Save / Print PDF</button>
-        <h1>4Sİ Reyestr Müraciəti #${r.id}</h1>
-        <p>Submitted: ${new Date(r.submittedAt).toLocaleString()}</p>
-
-        <div class="section">
-          <h2>Applicant</h2>
-          <p><b>Name:</b> ${esc(r.applicantName)}</p>
-          <p><b>Email:</b> ${esc(r.email)}</p>
-          <p><b>Phone:</b> ${esc(r.phone)}</p>
-          <p><b>Status:</b> ${esc(r.status)}</p>
+        <div class="topbar">
+          <div>
+            <h1>4Sİ Reyestr Müraciəti #${esc(r.id)}</h1>
+            <p class="subtitle">Submitted: ${formatDate(r.submittedAt)}</p>
+          </div>
+          <button class="printBtn" onclick="window.print()">Save / Print PDF</button>
         </div>
 
-        <div class="section">
-          <h2>Full Application</h2>
-          <pre>${esc(JSON.stringify(r.payload,null,2))}</pre>
-        </div>
+        ${buildPdfContent(r)}
 
         <script>
           setTimeout(() => window.print(), 300);
@@ -250,23 +360,139 @@ function downloadPdf(id){
       </body>
     </html>
   `);
+
   w.document.close();
 }
 
+function buildPdfContent(r){
+  const p = r.payload || {};
+  const projects = Array.isArray(p.projects) ? p.projects : [];
+
+  return `
+    <div class="section">
+      <h2>Applicant</h2>
+      <div class="infoGrid">
+        ${pdfField('Name', r.applicantName)}
+        ${pdfField('Email', r.email)}
+        ${pdfField('Phone', r.phone)}
+        ${pdfField('Status', r.status)}
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Organization</h2>
+      <div class="infoGrid">
+        ${pdfField('Organization Type', p.orgType)}
+        ${pdfField('Organization Name', p.orgName)}
+        ${pdfField('Contact Person', p.contactPerson)}
+        ${pdfField('Email', p.email)}
+        ${pdfField('Phone', p.phone)}
+        ${pdfField('Policy Alignment', p.policyAlignment)}
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Project(s)</h2>
+      ${
+        projects.length
+          ? projects.map((pr, index) => buildProjectHtml(pr, index)).join('')
+          : '<p>No project information provided.</p>'
+      }
+    </div>
+
+    <div class="section">
+      <h2>Additional Information</h2>
+      <div class="infoGrid">
+        ${pdfField('Uploaded File', p.fileName)}
+        ${pdfField('Consent', p.consent ? 'Approved' : 'Not provided')}
+      </div>
+    </div>
+  `;
+}
+
+function buildProjectHtml(pr, index){
+  const technologies = Array.isArray(pr.technologies) ? pr.technologies : [];
+
+  return `
+    <div class="project">
+      <h3>Project ${index + 1}: ${esc(pr.projectName || '-')}</h3>
+
+      <p><b>Description:</b> ${esc(pr.description || '-')}</p>
+
+      <div class="infoGrid">
+        ${pdfField('Status', pr.status)}
+        ${pdfField('Sector', pr.sector)}
+        ${pdfField('Scale', pr.scale)}
+        ${pdfField('Start Date', pr.startDate)}
+        ${pdfField('End Date', pr.endDate)}
+        ${pdfField('Partners', pr.partners)}
+        ${pdfField('Funding', pr.funding)}
+        ${pdfField('Website', pr.website ? '<a href="' + escAttr(pr.website) + '">' + esc(pr.website) + '</a>' : '-')}
+      </div>
+
+      <p><b>Tech Usage:</b> ${esc(pr.techUsage || '-')}</p>
+      <p><b>Other Tech:</b> ${esc(pr.otherTech || '-')}</p>
+
+      <p><b>Technologies:</b></p>
+      <div class="chips">
+        ${
+          technologies.length
+            ? technologies.map(t => `<span class="chip">${esc(t)}</span>`).join('')
+            : '<span class="chip">Not provided</span>'
+        }
+      </div>
+    </div>
+  `;
+}
+
+function pdfField(label, value){
+  return `
+    <div class="label">${esc(label)}</div>
+    <div class="value">${value === undefined || value === null || value === '' ? '-' : value}</div>
+  `;
+}
+
 function downloadCsv(){
-  const header=['id','submittedAt','applicantName','email','phone','status','payload'];
-  const csv=[header.join(',')]
-    .concat(rows.map(r=>header.map(k=>'"'+String(k==='payload'?JSON.stringify(r.payload):(r[k]??'')).replaceAll('"','""')+'"').join(',')))
+  const header = ['id','submittedAt','applicantName','email','phone','status','payload'];
+
+  const csv = [header.join(',')]
+    .concat(rows.map(r =>
+      header.map(k =>
+        '"' + String(k === 'payload' ? JSON.stringify(r.payload) : (r[k] ?? '')).replaceAll('"','""') + '"'
+      ).join(',')
+    ))
     .join('\n');
 
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download='applications.csv';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = 'applications.csv';
   a.click();
 }
 
+function formatDate(value){
+  if(!value) return '-';
+  const d = new Date(value);
+  if(isNaN(d.getTime())) return '-';
+  return d.toLocaleString();
+}
+
 function esc(v){
-  return String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  return String(v ?? '').replace(/[&<>"]/g, c => ({
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;'
+  }[c]));
+}
+
+function escAttr(v){
+  return String(v ?? '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;',
+    "'":'&#039;'
+  }[c]));
 }
 
 if(token()){
