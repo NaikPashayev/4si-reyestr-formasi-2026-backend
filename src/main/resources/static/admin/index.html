@@ -5,7 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>4SIM Registry Admin</title>
   <style>
-    body{font-family:Inter,Arial,sans-serif;margin:0;background:#f7f7f8;color:#141414}.wrap{max-width:1180px;margin:0 auto;padding:32px}.card{background:#fff;border:1px solid #e8e8e8;border-radius:16px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.04)}h1{margin:0 0 18px}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}input,button{font:inherit;border-radius:10px;border:1px solid #d6d6d6;padding:10px 12px}button{background:#111;color:#fff;cursor:pointer;border-color:#111}.muted{color:#666;font-size:14px}.error{color:#b42318}.hidden{display:none}table{width:100%;border-collapse:collapse;margin-top:18px;background:#fff}th,td{text-align:left;border-bottom:1px solid #eee;padding:10px;vertical-align:top}th{font-size:12px;text-transform:uppercase;color:#666}pre{white-space:pre-wrap;max-height:180px;overflow:auto;background:#fafafa;border:1px solid #eee;padding:10px;border-radius:10px}.toolbar{justify-content:space-between;margin-bottom:12px}
+    body{font-family:Inter,Arial,sans-serif;margin:0;background:#f4f7fb;color:#172033}
+    .wrap{max-width:1280px;margin:0 auto;padding:32px}
+    .card{background:#fff;border:1px solid #e5eaf1;border-radius:18px;padding:24px;box-shadow:0 12px 35px rgba(15,23,42,.06)}
+    h1{margin:0 0 10px}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    input,button{font:inherit;border-radius:10px;border:1px solid #d6dce6;padding:10px 12px}
+    button{background:#111827;color:#fff;cursor:pointer;border-color:#111827}
+    button.secondary{background:#fff;color:#111827}
+    button.danger{background:#b42318;border-color:#b42318}
+    .muted{color:#64748b;font-size:14px}
+    .error{color:#b42318}
+    .hidden{display:none}
+    .toolbar{justify-content:space-between;margin-bottom:18px}
+    table{width:100%;border-collapse:collapse;background:#fff}
+    th,td{text-align:left;border-bottom:1px solid #edf1f7;padding:12px;vertical-align:top}
+    th{font-size:12px;text-transform:uppercase;color:#64748b}
+    .badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#eef2ff;color:#1d4ed8;font-size:12px}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:24px}
+    .modal.hidden{display:none}
+    .modalBox{background:#fff;max-width:900px;width:100%;max-height:85vh;overflow:auto;border-radius:18px;padding:24px}
+    .grid{display:grid;grid-template-columns:220px 1fr;gap:10px;border-top:1px solid #edf1f7;margin-top:14px}
+    .grid div{padding:10px 0;border-bottom:1px solid #edf1f7}
+    .label{color:#64748b;font-weight:700}
   </style>
 </head>
 <body>
@@ -22,39 +45,234 @@
 
     <section id="panel" class="card hidden">
       <div class="row toolbar">
-        <div><h1>Applicants</h1><div id="count" class="muted"></div></div>
-        <div class="row"><button onclick="loadApplications()">Refresh</button><button onclick="downloadCsv()">Download CSV</button><button onclick="logout()">Logout</button></div>
+        <div>
+          <h1>Applicants</h1>
+          <div id="count" class="muted"></div>
+        </div>
+        <div class="row">
+          <button onclick="loadApplications()">Refresh</button>
+          <button onclick="downloadCsv()">Download CSV</button>
+          <button onclick="logout()">Logout</button>
+        </div>
       </div>
-      <div style="overflow:auto"><table id="table"><thead><tr><th>ID</th><th>Submitted</th><th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Full payload</th></tr></thead><tbody></tbody></table></div>
+
+      <div style="overflow:auto">
+        <table id="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Submitted</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </section>
   </main>
+
+  <div id="modal" class="modal hidden">
+    <div class="modalBox">
+      <div class="row toolbar">
+        <h1 id="modalTitle">Application</h1>
+        <button class="secondary" onclick="closeModal()">Close</button>
+      </div>
+      <div id="details"></div>
+    </div>
+  </div>
+
 <script>
 let rows=[];
+
 function token(){return localStorage.getItem('adminToken')}
+
 async function login(){
   const password=document.getElementById('password').value;
-  const res=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
-  if(!res.ok){document.getElementById('loginError').textContent='Invalid password';return;}
-  const data=await res.json(); localStorage.setItem('adminToken',data.token); showPanel(); loadApplications();
+  const res=await fetch('/api/admin/login',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({password})
+  });
+
+  if(!res.ok){
+    document.getElementById('loginError').textContent='Invalid password';
+    return;
+  }
+
+  const data=await res.json();
+  localStorage.setItem('adminToken',data.token);
+  showPanel();
+  loadApplications();
 }
-function logout(){localStorage.removeItem('adminToken'); location.reload();}
-function showPanel(){document.getElementById('login').classList.add('hidden');document.getElementById('panel').classList.remove('hidden')}
+
+function logout(){
+  localStorage.removeItem('adminToken');
+  location.reload();
+}
+
+function showPanel(){
+  document.getElementById('login').classList.add('hidden');
+  document.getElementById('panel').classList.remove('hidden');
+}
+
 async function loadApplications(){
-  const res=await fetch('/api/admin/applications',{headers:{Authorization:'Bearer '+token()}});
-  if(res.status===401){logout();return;} rows=await res.json(); render();
+  const res=await fetch('/api/admin/applications',{
+    headers:{Authorization:'Bearer '+token()}
+  });
+
+  if(res.status===401){
+    logout();
+    return;
+  }
+
+  rows=await res.json();
+  render();
 }
+
 function render(){
   document.getElementById('count').textContent=rows.length+' total applicant(s)';
-  const tbody=document.querySelector('#table tbody'); tbody.innerHTML='';
-  rows.forEach(r=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${r.id}</td><td>${new Date(r.submittedAt).toLocaleString()}</td><td>${esc(r.applicantName)}</td><td>${esc(r.email)}</td><td>${esc(r.phone)}</td><td>${esc(r.status)}</td><td><pre>${esc(JSON.stringify(r.payload,null,2))}</pre></td>`;tbody.appendChild(tr);});
+  const tbody=document.querySelector('#table tbody');
+  tbody.innerHTML='';
+
+  rows.forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td>${r.id}</td>
+      <td>${new Date(r.submittedAt).toLocaleString()}</td>
+      <td>${esc(r.applicantName)}</td>
+      <td>${esc(r.email)}</td>
+      <td>${esc(r.phone)}</td>
+      <td><span class="badge">${esc(r.status)}</span></td>
+      <td>
+        <div class="actions">
+          <button class="secondary" onclick="openDetails(${r.id})">View</button>
+          <button onclick="downloadPdf(${r.id})">PDF</button>
+          <button class="danger" onclick="deleteApplication(${r.id})">Delete</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
 }
+
+async function deleteApplication(id){
+  if(!confirm('Delete application #' + id + '?')) return;
+
+  const res=await fetch('/api/admin/applications/' + id,{
+    method:'DELETE',
+    headers:{Authorization:'Bearer '+token()}
+  });
+
+  if(!res.ok){
+    alert('Delete failed');
+    return;
+  }
+
+  rows=rows.filter(r=>r.id!==id);
+  render();
+}
+
+function openDetails(id){
+  const r=rows.find(x=>x.id===id);
+  if(!r) return;
+
+  document.getElementById('modalTitle').textContent='Application #' + r.id;
+  document.getElementById('details').innerHTML=buildDetailsHtml(r);
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function closeModal(){
+  document.getElementById('modal').classList.add('hidden');
+}
+
+function buildDetailsHtml(r){
+  const p=r.payload || {};
+  return `
+    <div class="grid">
+      ${field('ID', r.id)}
+      ${field('Submitted', new Date(r.submittedAt).toLocaleString())}
+      ${field('Name', r.applicantName)}
+      ${field('Email', r.email)}
+      ${field('Phone', r.phone)}
+      ${field('Status', r.status)}
+      ${field('Payload', '<pre>'+esc(JSON.stringify(p,null,2))+'</pre>')}
+    </div>
+  `;
+}
+
+function field(label,value){
+  return `<div class="label">${esc(label)}</div><div>${value ?? ''}</div>`;
+}
+
+function downloadPdf(id){
+  const r=rows.find(x=>x.id===id);
+  if(!r) return;
+
+  const w=window.open('', '_blank');
+  w.document.write(`
+    <html>
+      <head>
+        <title>Application-${r.id}</title>
+        <style>
+          body{font-family:Arial,sans-serif;padding:32px;color:#111}
+          h1{margin-bottom:4px}
+          .section{border:1px solid #ddd;border-radius:12px;padding:16px;margin:16px 0}
+          pre{white-space:pre-wrap;word-break:break-word}
+          button{padding:10px 14px;border-radius:8px;background:#111;color:#fff;border:0}
+          @media print{button{display:none}}
+        </style>
+      </head>
+      <body>
+        <button onclick="window.print()">Save / Print PDF</button>
+        <h1>4Sİ Reyestr Müraciəti #${r.id}</h1>
+        <p>Submitted: ${new Date(r.submittedAt).toLocaleString()}</p>
+
+        <div class="section">
+          <h2>Applicant</h2>
+          <p><b>Name:</b> ${esc(r.applicantName)}</p>
+          <p><b>Email:</b> ${esc(r.email)}</p>
+          <p><b>Phone:</b> ${esc(r.phone)}</p>
+          <p><b>Status:</b> ${esc(r.status)}</p>
+        </div>
+
+        <div class="section">
+          <h2>Full Application</h2>
+          <pre>${esc(JSON.stringify(r.payload,null,2))}</pre>
+        </div>
+
+        <script>
+          setTimeout(() => window.print(), 300);
+        <\/script>
+      </body>
+    </html>
+  `);
+  w.document.close();
+}
+
 function downloadCsv(){
   const header=['id','submittedAt','applicantName','email','phone','status','payload'];
-  const csv=[header.join(',')].concat(rows.map(r=>header.map(k=>'"'+String(k==='payload'?JSON.stringify(r.payload):(r[k]??'')).replaceAll('"','""')+'"').join(','))).join('\n');
-  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='applications.csv'; a.click();
+  const csv=[header.join(',')]
+    .concat(rows.map(r=>header.map(k=>'"'+String(k==='payload'?JSON.stringify(r.payload):(r[k]??'')).replaceAll('"','""')+'"').join(',')))
+    .join('\n');
+
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='applications.csv';
+  a.click();
 }
-function esc(v){return String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-if(token()){showPanel();loadApplications();}
+
+function esc(v){
+  return String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+if(token()){
+  showPanel();
+  loadApplications();
+}
 </script>
 </body>
 </html>

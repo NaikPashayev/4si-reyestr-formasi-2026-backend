@@ -45,6 +45,25 @@ public class AdminController {
     return rows;
   }
 
+  @DeleteMapping("/applications/{id}")
+public Map<String, Object> delete(
+    @RequestHeader(HttpHeaders.AUTHORIZATION) String auth,
+    @PathVariable Long id
+) {
+    requireAdmin(auth);
+
+    if (!repository.existsById(id)) {
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found");
+    }
+
+    repository.deleteById(id);
+
+    return Map.of(
+        "deleted", true,
+        "id", id
+    );
+}
+
   private void requireAdmin(String auth) {
     if (auth == null || !auth.startsWith("Bearer ") || !tokenService.valid(auth.substring(7))) {
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Admin login required");

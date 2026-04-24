@@ -10,7 +10,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebConfig implements WebMvcConfigurer {
   @Value("${app.cors.allowed-origins}") private String allowedOrigins;
   @Override public void addCorsMappings(CorsRegistry registry) {
-    registry.addMapping("/api/**").allowedOrigins(allowedOrigins.split(",")).allowedMethods("GET", "POST", "OPTIONS").allowedHeaders("*");
+    registry.addMapping("/api/**").allowedOrigins(allowedOrigins.split(",")).allowedMethods("GET", "POST", "DELETE", "OPTIONS").allowedHeaders("*");
   }
   @Override public void addViewControllers(ViewControllerRegistry registry) {
     registry.addViewController("/c4ir-admin-4sim").setViewName("forward:/admin/index.html");
