@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>4SIM Registry Admin</title>
+  <style>
+    body{font-family:Inter,Arial,sans-serif;margin:0;background:#f7f7f8;color:#141414}.wrap{max-width:1180px;margin:0 auto;padding:32px}.card{background:#fff;border:1px solid #e8e8e8;border-radius:16px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.04)}h1{margin:0 0 18px}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}input,button{font:inherit;border-radius:10px;border:1px solid #d6d6d6;padding:10px 12px}button{background:#111;color:#fff;cursor:pointer;border-color:#111}.muted{color:#666;font-size:14px}.error{color:#b42318}.hidden{display:none}table{width:100%;border-collapse:collapse;margin-top:18px;background:#fff}th,td{text-align:left;border-bottom:1px solid #eee;padding:10px;vertical-align:top}th{font-size:12px;text-transform:uppercase;color:#666}pre{white-space:pre-wrap;max-height:180px;overflow:auto;background:#fafafa;border:1px solid #eee;padding:10px;border-radius:10px}.toolbar{justify-content:space-between;margin-bottom:12px}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section id="login" class="card">
+      <h1>Admin login</h1>
+      <p class="muted">This page is intentionally not linked from the public website. Data is protected by the admin password.</p>
+      <div class="row">
+        <input id="password" type="password" placeholder="Admin password" autofocus />
+        <button onclick="login()">Login</button>
+      </div>
+      <p id="loginError" class="error"></p>
+    </section>
+
+    <section id="panel" class="card hidden">
+      <div class="row toolbar">
+        <div><h1>Applicants</h1><div id="count" class="muted"></div></div>
+        <div class="row"><button onclick="loadApplications()">Refresh</button><button onclick="downloadCsv()">Download CSV</button><button onclick="logout()">Logout</button></div>
+      </div>
+      <div style="overflow:auto"><table id="table"><thead><tr><th>ID</th><th>Submitted</th><th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Full payload</th></tr></thead><tbody></tbody></table></div>
+    </section>
+  </main>
+<script>
+let rows=[];
+function token(){return localStorage.getItem('adminToken')}
+async function login(){
+  const password=document.getElementById('password').value;
+  const res=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
+  if(!res.ok){document.getElementById('loginError').textContent='Invalid password';return;}
+  const data=await res.json(); localStorage.setItem('adminToken',data.token); showPanel(); loadApplications();
+}
+function logout(){localStorage.removeItem('adminToken'); location.reload();}
+function showPanel(){document.getElementById('login').classList.add('hidden');document.getElementById('panel').classList.remove('hidden')}
+async function loadApplications(){
+  const res=await fetch('/api/admin/applications',{headers:{Authorization:'Bearer '+token()}});
+  if(res.status===401){logout();return;} rows=await res.json(); render();
+}
+function render(){
+  document.getElementById('count').textContent=rows.length+' total applicant(s)';
+  const tbody=document.querySelector('#table tbody'); tbody.innerHTML='';
+  rows.forEach(r=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${r.id}</td><td>${new Date(r.submittedAt).toLocaleString()}</td><td>${esc(r.applicantName)}</td><td>${esc(r.email)}</td><td>${esc(r.phone)}</td><td>${esc(r.status)}</td><td><pre>${esc(JSON.stringify(r.payload,null,2))}</pre></td>`;tbody.appendChild(tr);});
+}
+function downloadCsv(){
+  const header=['id','submittedAt','applicantName','email','phone','status','payload'];
+  const csv=[header.join(',')].concat(rows.map(r=>header.map(k=>'"'+String(k==='payload'?JSON.stringify(r.payload):(r[k]??'')).replaceAll('"','""')+'"').join(','))).join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='applications.csv'; a.click();
+}
+function esc(v){return String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+if(token()){showPanel();loadApplications();}
+</script>
+</body>
+</html>

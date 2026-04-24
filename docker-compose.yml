@@ -1,0 +1,13 @@
+services:
+  backend:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      ADMIN_PASSWORD: "4sim4sim"
+      ADMIN_TOKEN_SECRET: ";qn4oElX|ew]|MO)eg3Z0%'qM{XpIar~"
+      ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:8080"
+    volumes:
+      - innovate-data:/data
+volumes:
+  innovate-data:
