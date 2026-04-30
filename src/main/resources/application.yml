@@ -7,6 +7,14 @@ app:
     token-ttl-hours: ${ADMIN_TOKEN_TTL_HOURS:12}
   cors:
     allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://localhost:8080}
+  storage:
+    local-upload-dir: ${UPLOAD_DIR:/data/uploads}
+    r2:
+      endpoint: ${R2_ENDPOINT:}
+      bucket: ${R2_BUCKET:}
+      access-key-id: ${R2_ACCESS_KEY_ID:}
+      secret-access-key: ${R2_SECRET_ACCESS_KEY:}
+      region: ${R2_REGION:auto}
 spring:
   datasource:
     url: ${DATABASE_URL:jdbc:h2:file:/data/innovate-registry;AUTO_SERVER=TRUE}

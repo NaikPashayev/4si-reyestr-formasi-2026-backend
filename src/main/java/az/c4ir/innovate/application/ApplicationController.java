@@ -4,30 +4,25 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import az.c4ir.innovate.storage.FileStorageService;
+
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/applications")
 public class ApplicationController {
-  private static final Path UPLOAD_DIR = Paths.get("/data/uploads");
-
   private final ApplicationRepository repository;
   private final ObjectMapper objectMapper;
+  private final FileStorageService fileStorageService;
 
-  public ApplicationController(ApplicationRepository repository, ObjectMapper objectMapper) {
+  public ApplicationController(ApplicationRepository repository, ObjectMapper objectMapper, FileStorageService fileStorageService) {
     this.repository = repository;
     this.objectMapper = objectMapper;
+    this.fileStorageService = fileStorageService;
   }
 
   @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -62,7 +57,10 @@ public class ApplicationController {
       entity.setPhone(firstString(payload, "phone", "mobile", "phoneNumber"));
 
       if (file != null && !file.isEmpty()) {
-        storePdf(file, entity);
+        FileStorageService.StoredFile storedFile = fileStorageService.storePdf(file);
+        entity.setFileName(storedFile.fileName());
+        entity.setFilePath(storedFile.storagePath());
+        entity.setFileContentType(storedFile.contentType());
       }
 
       ApplicationEntity saved = repository.save(entity);
@@ -72,26 +70,6 @@ public class ApplicationController {
     } catch (Exception e) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Could not save application");
     }
-  }
-
-  private void storePdf(MultipartFile file, ApplicationEntity entity) throws IOException {
-    String originalName = StringUtils.cleanPath(file.getOriginalFilename() == null ? "application.pdf" : file.getOriginalFilename());
-    String contentType = file.getContentType();
-
-    boolean pdfContentType = contentType != null && contentType.equalsIgnoreCase(MediaType.APPLICATION_PDF_VALUE);
-    boolean pdfExtension = originalName.toLowerCase().endsWith(".pdf");
-    if (!pdfContentType && !pdfExtension) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only PDF files are allowed");
-    }
-
-    Files.createDirectories(UPLOAD_DIR);
-    String savedName = UUID.randomUUID() + ".pdf";
-    Path savedPath = UPLOAD_DIR.resolve(savedName).normalize();
-    Files.copy(file.getInputStream(), savedPath, StandardCopyOption.REPLACE_EXISTING);
-
-    entity.setFileName(originalName);
-    entity.setFilePath(savedPath.toString());
-    entity.setFileContentType(contentType == null || contentType.isBlank() ? MediaType.APPLICATION_PDF_VALUE : contentType);
   }
 
   private String firstString(Map<String, Object> payload, String... keys) {

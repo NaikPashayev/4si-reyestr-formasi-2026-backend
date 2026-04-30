@@ -4,8 +4,8 @@ import az.c4ir.innovate.application.ApplicationEntity;
 import az.c4ir.innovate.application.ApplicationRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
+import az.c4ir.innovate.storage.FileStorageService;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -14,10 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.net.MalformedURLException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.IOException;
 import java.util.*;
 
 @RestController
@@ -27,9 +24,10 @@ public class AdminController {
   private final ObjectMapper objectMapper;
   private final String adminPassword;
   private final TokenService tokenService;
+  private final FileStorageService fileStorageService;
 
-  public AdminController(ApplicationRepository repository, ObjectMapper objectMapper, @Value("${app.admin.password}") String adminPassword, TokenService tokenService) {
-    this.repository = repository; this.objectMapper = objectMapper; this.adminPassword = adminPassword; this.tokenService = tokenService;
+  public AdminController(ApplicationRepository repository, ObjectMapper objectMapper, @Value("${app.admin.password}") String adminPassword, TokenService tokenService, FileStorageService fileStorageService) {
+    this.repository = repository; this.objectMapper = objectMapper; this.adminPassword = adminPassword; this.tokenService = tokenService; this.fileStorageService = fileStorageService;
   }
 
   @PostMapping("/login")
@@ -73,20 +71,17 @@ public class AdminController {
     }
 
     try {
-      Path path = Paths.get(application.getFilePath()).normalize();
-      if (!Files.exists(path) || !Files.isRegularFile(path)) {
-        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Uploaded file not found");
-      }
-
-      Resource resource = new UrlResource(path.toUri());
-      String fileName = Optional.ofNullable(application.getFileName()).filter(s -> !s.isBlank()).orElse("application-" + id + ".pdf");
-      String contentType = Optional.ofNullable(application.getFileContentType()).filter(s -> !s.isBlank()).orElse(MediaType.APPLICATION_PDF_VALUE);
+      FileStorageService.DownloadedFile downloadedFile = fileStorageService.load(
+          application.getFilePath(),
+          Optional.ofNullable(application.getFileName()).filter(s -> !s.isBlank()).orElse("application-" + id + ".pdf"),
+          application.getFileContentType()
+      );
 
       return ResponseEntity.ok()
-          .contentType(MediaType.parseMediaType(contentType))
-          .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(fileName).build().toString())
-          .body(resource);
-    } catch (MalformedURLException e) {
+          .contentType(MediaType.parseMediaType(downloadedFile.contentType()))
+          .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(downloadedFile.fileName()).build().toString())
+          .body(downloadedFile.resource());
+    } catch (IOException e) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Uploaded file not found");
     }
   }
