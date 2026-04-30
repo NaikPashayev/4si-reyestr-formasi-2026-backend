@@ -154,7 +154,8 @@ function render(){
       <td>
         <div class="actions">
           <button class="secondary" onclick="openDetails(${r.id})">View</button>
-          <button onclick="downloadPdf(${r.id})">PDF</button>
+          <button onclick="downloadUploadedPdf(${r.id})" ${r.hasFile ? "" : "disabled title=\"No uploaded PDF\""}>Uploaded PDF</button>
+          <button class="secondary" onclick="printApplicationPdf(${r.id})">Print PDF</button>
           <button class="danger" onclick="deleteApplication(${r.id})">Delete</button>
         </div>
       </td>
@@ -213,7 +214,48 @@ function field(label, value){
   return `<div class="label">${esc(label)}</div><div>${value ?? ''}</div>`;
 }
 
-function downloadPdf(id){
+async function downloadUploadedPdf(id){
+  const r = rows.find(x => x.id === id);
+  if(!r || !r.hasFile){
+    alert('No uploaded PDF found for this application');
+    return;
+  }
+
+  const res = await fetch('/api/admin/applications/' + id + '/file', {
+    headers:{Authorization:'Bearer ' + token()}
+  });
+
+  if(res.status === 401){
+    logout();
+    return;
+  }
+
+  if(res.status === 404){
+    alert('No uploaded PDF found for this application');
+    return;
+  }
+
+  if(!res.ok){
+    alert('PDF download failed');
+    return;
+  }
+
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const match = disposition.match(/filename\*?=(?:UTF-8''|)["']?([^";']+)/i);
+  const filename = match ? decodeURIComponent(match[1]) : (r.fileName || ('application-' + id + '.pdf'));
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function printApplicationPdf(id){
   const r = rows.find(x => x.id === id);
   if(!r) return;
 

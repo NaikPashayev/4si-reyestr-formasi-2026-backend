@@ -4,10 +4,20 @@ import az.c4ir.innovate.application.ApplicationEntity;
 import az.c4ir.innovate.application.ApplicationRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.net.MalformedURLException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 @RestController
@@ -34,26 +44,62 @@ public class AdminController {
     List<Map<String, Object>> rows = new ArrayList<>();
     for (ApplicationEntity e : repository.findAllByOrderBySubmittedAtDesc()) {
       Map<String, Object> payload = objectMapper.readValue(e.getPayloadJson(), Map.class);
-      rows.add(Map.of(
-        "id", e.getId(), "submittedAt", e.getSubmittedAt(), "status", e.getStatus(),
-        "applicantName", Optional.ofNullable(e.getApplicantName()).orElse(""),
-        "email", Optional.ofNullable(e.getEmail()).orElse(""),
-        "phone", Optional.ofNullable(e.getPhone()).orElse(""),
-        "payload", payload
-      ));
+      Map<String, Object> row = new LinkedHashMap<>();
+      row.put("id", e.getId());
+      row.put("submittedAt", e.getSubmittedAt());
+      row.put("status", e.getStatus());
+      row.put("applicantName", Optional.ofNullable(e.getApplicantName()).orElse(""));
+      row.put("email", Optional.ofNullable(e.getEmail()).orElse(""));
+      row.put("phone", Optional.ofNullable(e.getPhone()).orElse(""));
+      row.put("fileName", Optional.ofNullable(e.getFileName()).orElse(""));
+      row.put("hasFile", e.getFilePath() != null && !e.getFilePath().isBlank());
+      row.put("payload", payload);
+      rows.add(row);
     }
     return rows;
   }
 
+  @GetMapping("/applications/{id}/file")
+  public ResponseEntity<Resource> file(
+      @RequestHeader(HttpHeaders.AUTHORIZATION) String auth,
+      @PathVariable Long id
+  ) {
+    requireAdmin(auth);
+    ApplicationEntity application = repository.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found"));
+
+    if (application.getFilePath() == null || application.getFilePath().isBlank()) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No uploaded file found");
+    }
+
+    try {
+      Path path = Paths.get(application.getFilePath()).normalize();
+      if (!Files.exists(path) || !Files.isRegularFile(path)) {
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Uploaded file not found");
+      }
+
+      Resource resource = new UrlResource(path.toUri());
+      String fileName = Optional.ofNullable(application.getFileName()).filter(s -> !s.isBlank()).orElse("application-" + id + ".pdf");
+      String contentType = Optional.ofNullable(application.getFileContentType()).filter(s -> !s.isBlank()).orElse(MediaType.APPLICATION_PDF_VALUE);
+
+      return ResponseEntity.ok()
+          .contentType(MediaType.parseMediaType(contentType))
+          .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(fileName).build().toString())
+          .body(resource);
+    } catch (MalformedURLException e) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Uploaded file not found");
+    }
+  }
+
   @DeleteMapping("/applications/{id}")
-public Map<String, Object> delete(
-    @RequestHeader(HttpHeaders.AUTHORIZATION) String auth,
-    @PathVariable Long id
-) {
+  public Map<String, Object> delete(
+      @RequestHeader(HttpHeaders.AUTHORIZATION) String auth,
+      @PathVariable Long id
+  ) {
     requireAdmin(auth);
 
     if (!repository.existsById(id)) {
-        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found");
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found");
     }
 
     repository.deleteById(id);
@@ -62,7 +108,7 @@ public Map<String, Object> delete(
         "deleted", true,
         "id", id
     );
-}
+  }
 
   private void requireAdmin(String auth) {
     if (auth == null || !auth.startsWith("Bearer ") || !tokenService.valid(auth.substring(7))) {

@@ -16,6 +16,9 @@ public class ApplicationEntity {
   private String email;
   private String phone;
   private String status = "NEW";
+  private String fileName;
+  private String filePath;
+  private String fileContentType;
 
   public Long getId() { return id; }
   public Instant getSubmittedAt() { return submittedAt; }
@@ -29,4 +32,10 @@ public class ApplicationEntity {
   public void setPhone(String phone) { this.phone = phone; }
   public String getStatus() { return status; }
   public void setStatus(String status) { this.status = status; }
+  public String getFileName() { return fileName; }
+  public void setFileName(String fileName) { this.fileName = fileName; }
+  public String getFilePath() { return filePath; }
+  public void setFilePath(String filePath) { this.filePath = filePath; }
+  public String getFileContentType() { return fileContentType; }
+  public void setFileContentType(String fileContentType) { this.fileContentType = fileContentType; }
 }
